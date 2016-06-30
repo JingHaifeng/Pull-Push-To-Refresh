@@ -10,8 +10,15 @@
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context="com.alexjing.pullpushtorefresh.MainActivity">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Hello World!"/>
+    <com.alexjing.pullpushtorefresh.lib.PullPushLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="Hello World!"
+            android:textSize="30sp"/>
+    </com.alexjing.pullpushtorefresh.lib.PullPushLayout>
 </RelativeLayout>
