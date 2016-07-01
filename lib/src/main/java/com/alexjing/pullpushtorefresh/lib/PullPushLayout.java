@@ -106,12 +106,21 @@ public class PullPushLayout extends ViewGroup implements PullPushConstants.View 
                     return true;
                 }
 
-//                if (Math.signum(mOffsetTotal) != Math.signum(offset)) {
-//                    mContentView.offsetTopAndBottom((int) offset);
-//                    mHeaderView.offsetTopAndBottom((int) offset);
-//                    mFooterView.offsetTopAndBottom((int) offset);
-//                    return true;
-//                }
+                if (mOffsetTotal * offset < 0) {
+                    float diff = mOffsetTotal + offset;
+                    if (diff * offset > 0) {
+                        offset = -mOffsetTotal;
+                    }
+                    mOffsetTotal += offset;
+                    mContentView.offsetTopAndBottom((int) offset);
+                    mHeaderView.offsetTopAndBottom((int) offset);
+                    mFooterView.offsetTopAndBottom((int) offset);
+                    return true;
+                } else {
+                    mOffsetTotal = 0f;
+                }
+
+
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
