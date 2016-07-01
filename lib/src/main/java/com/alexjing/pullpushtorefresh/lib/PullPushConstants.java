@@ -10,11 +10,16 @@ import com.alexjing.pullpushtorefresh.lib.base.BaseView;
  * @date: 2016-06-30
  * @time: 14:40
  */
-public class PullPushConstants {
+public interface PullPushConstants {
+
+    int STATE_NONE = (1 << 0);
+    int STATE_IN_TOUCH_DOWN = (1 << 1);
+
 
     interface Presenter extends BasePresenter {
 
         boolean dispatchTouchEvent(MotionEvent motionEvent);
+
 
     }
 
@@ -22,5 +27,9 @@ public class PullPushConstants {
 
 
         void updateContentPosition(float vertical);
+
+        boolean canVerticalScroll(int direction);
+
+        void resetChild();
     }
 }

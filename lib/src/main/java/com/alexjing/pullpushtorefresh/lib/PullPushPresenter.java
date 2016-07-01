@@ -12,6 +12,15 @@ public class PullPushPresenter implements PullPushConstants.Presenter {
     private PullPushConstants.View mView;
 
 
+    private float mDownY;
+    private float mLastMoveY;
+    private float mCurrentMoveY;
+    private float mEndY;
+    private float mOffset;
+
+    // 方向
+    private int mDirection = 0;
+
     public PullPushPresenter(PullPushConstants.View view) {
         mView = view;
         mView.setPresenter(this);
@@ -26,11 +35,26 @@ public class PullPushPresenter implements PullPushConstants.Presenter {
         final int action = motionEvent.getAction();
         switch (action) {
             case MotionEvent.ACTION_DOWN:
+                mDownY = motionEvent.getY();
+                mCurrentMoveY = mDownY;
                 break;
             case MotionEvent.ACTION_MOVE:
+                mLastMoveY = mCurrentMoveY;
+                mCurrentMoveY = motionEvent.getY();
+
+                mDirection = mCurrentMoveY - mDirection > 0 ? 1 :
+                        mCurrentMoveY - mDirection < 0 ? -1 : 0;
+
+                if (!mView.canVerticalScroll(-mDirection)) {
+                    mOffset = mCurrentMoveY - mLastMoveY;
+                }
+                mView.updateContentPosition(mOffset);
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
+                if (mOffset != 0) {
+                    mView.updateContentPosition(-mOffset);
+                }
                 break;
         }
 

@@ -23,6 +23,7 @@ public class PullPushLayout extends ViewGroup implements PullPushConstants.View 
     private int mContentId;
 
     private PullPushConstants.Presenter mPresenter;
+    private int mHeaderHeight;
 
     public PullPushLayout(Context context) {
         this(context, null);
@@ -57,18 +58,71 @@ public class PullPushLayout extends ViewGroup implements PullPushConstants.View 
             mContentView = getChildAt(1);
             mFooterView = getChildAt(2);
         }
-        super.onFinishInflate();
+
+        if (mContentView != null) {
+            mContentView.bringToFront();
+        }
+
+        if (mFooterView != null) super.onFinishInflate();
     }
+
+    private float mDownY;
+    private float mLastMoveY;
+    private float mCurrentMoveY;
+
+    private float mOffsetTotal = 0;
 
     // 分发事件
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
-        if (!isEnabled() || (mContentView == null //||(mHeaderView == null && mFooterView == null)
-        )) {
+        if (!isEnabled() || mContentView == null || (mHeaderView == null && mFooterView == null)) {
             return super.dispatchTouchEvent(ev);
         }
+        final int action = ev.getAction();
+        switch (action) {
+            case MotionEvent.ACTION_DOWN:
+                mDownY = ev.getY();
+                mCurrentMoveY = mDownY;
+                mOffsetTotal = 0;
+                break;
+            case MotionEvent.ACTION_MOVE:
+                mLastMoveY = mCurrentMoveY;
+                mCurrentMoveY = ev.getY();
+                float offset = mCurrentMoveY - mLastMoveY;
+                boolean moveDown = offset < 0;
+                if (moveDown && !mContentView.canScrollVertically(1)) {
+                    mContentView.offsetTopAndBottom((int) offset);
+                    mHeaderView.offsetTopAndBottom((int) offset);
+                    mFooterView.offsetTopAndBottom((int) offset);
 
-        return mPresenter.dispatchTouchEvent(ev);
+                    mOffsetTotal += offset;
+                    return true;
+                } else if (!moveDown && !mContentView.canScrollVertically(-1)) {
+                    mContentView.offsetTopAndBottom((int) offset);
+                    mHeaderView.offsetTopAndBottom((int) offset);
+                    mFooterView.offsetTopAndBottom((int) offset);
+
+                    mOffsetTotal += offset;
+                    return true;
+                }
+
+//                if (Math.signum(mOffsetTotal) != Math.signum(offset)) {
+//                    mContentView.offsetTopAndBottom((int) offset);
+//                    mHeaderView.offsetTopAndBottom((int) offset);
+//                    mFooterView.offsetTopAndBottom((int) offset);
+//                    return true;
+//                }
+                break;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                mDownY = 0;
+                mCurrentMoveY = 0;
+                mLastMoveY = 0;
+                resetChild();
+                break;
+        }
+
+        return super.dispatchTouchEvent(ev);
     }
 
     // 测量、布局
@@ -76,8 +130,18 @@ public class PullPushLayout extends ViewGroup implements PullPushConstants.View 
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
 
+        if (mHeaderView != null) {
+            measureChildWithMargins(mHeaderView, widthMeasureSpec, 0, heightMeasureSpec, 0);
+            MarginLayoutParams lp = (MarginLayoutParams) mHeaderView.getLayoutParams();
+            mHeaderHeight = mHeaderView.getMeasuredHeight() + lp.topMargin + lp.bottomMargin;
+        }
+
         if (mContentView != null) {
             measureContentView(mContentView, widthMeasureSpec, heightMeasureSpec);
+        }
+
+        if (mFooterView != null) {
+            measureChildWithMargins(mFooterView, widthMeasureSpec, 0, heightMeasureSpec, 0);
         }
     }
 
@@ -103,8 +167,21 @@ public class PullPushLayout extends ViewGroup implements PullPushConstants.View 
     }
 
     private void layoutChild() {
+
+
         int paddingLeft = getPaddingLeft();
         int paddingTop = getPaddingTop();
+
+        if (mHeaderView != null) {
+            MarginLayoutParams lp = (MarginLayoutParams) mHeaderView.getLayoutParams();
+            final int left = lp.leftMargin + paddingLeft;
+            final int top = getTop() - mHeaderHeight;
+            final int right = left + mHeaderView.getMeasuredWidth();
+            final int bottom = top + mHeaderView.getMeasuredHeight();
+
+            mHeaderView.layout(left, top, right, bottom);
+        }
+
         if (mContentView != null) {
             MarginLayoutParams lp = (MarginLayoutParams) mContentView.getLayoutParams();
             final int left = lp.leftMargin + paddingLeft;
@@ -113,6 +190,17 @@ public class PullPushLayout extends ViewGroup implements PullPushConstants.View 
             final int bottom = top + mContentView.getMeasuredHeight();
 
             mContentView.layout(left, top, right, bottom);
+        }
+
+
+        if (mFooterView != null) {
+            MarginLayoutParams lp = (MarginLayoutParams) mFooterView.getLayoutParams();
+            final int left = lp.leftMargin + paddingLeft;
+            final int top = getBottom() - getPaddingBottom();
+            final int right = left + mFooterView.getMeasuredWidth();
+            final int bottom = top + mFooterView.getMeasuredHeight();
+
+            mFooterView.layout(left, top, right, bottom);
         }
     }
 
@@ -141,6 +229,19 @@ public class PullPushLayout extends ViewGroup implements PullPushConstants.View 
     public void updateContentPosition(float vertical) {
         Log.d(TAG, "vertical:" + vertical);
         mContentView.offsetTopAndBottom((int) vertical);
+    }
+
+    @Override
+    public boolean canVerticalScroll(int direction) {
+        if (mContentView == null) {
+            return true;
+        }
+        return mContentView.canScrollVertically(direction);
+    }
+
+    @Override
+    public void resetChild() {
+        layoutChild();
     }
 
     @Override
