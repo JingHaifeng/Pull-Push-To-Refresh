@@ -6,6 +6,19 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Scroller;
+
+import com.alexjing.pullpushtorefresh.lib.annotation.PullState;
+
+import static com.alexjing.pullpushtorefresh.lib.PullStateConstants.STATE_COMPLETE_DOWN;
+import static com.alexjing.pullpushtorefresh.lib.PullStateConstants.STATE_COMPLETE_UP;
+import static com.alexjing.pullpushtorefresh.lib.PullStateConstants.STATE_INIT;
+import static com.alexjing.pullpushtorefresh.lib.PullStateConstants.STATE_LOADING_DOWN;
+import static com.alexjing.pullpushtorefresh.lib.PullStateConstants.STATE_LOADING_UP;
+import static com.alexjing.pullpushtorefresh.lib.PullStateConstants.STATE_PREPARE_DOWN;
+import static com.alexjing.pullpushtorefresh.lib.PullStateConstants.STATE_PREPARE_UP;
+import static com.alexjing.pullpushtorefresh.lib.PullStateConstants.STATE_PULL_DOWN;
+import static com.alexjing.pullpushtorefresh.lib.PullStateConstants.STATE_PULL_UP;
 
 /**
  * @author: haifeng jing(haifeng_jing@kingdee.com)
@@ -24,6 +37,11 @@ public class PullPushLayout extends ViewGroup implements PullPushConstants.View 
 
     private PullPushConstants.Presenter mPresenter;
     private int mHeaderHeight;
+    private int mFooterHeight;
+
+    private TouchManager mTouchManager;
+
+    private ScrollChecker mScrollChecker;
 
     public PullPushLayout(Context context) {
         this(context, null);
@@ -36,6 +54,18 @@ public class PullPushLayout extends ViewGroup implements PullPushConstants.View 
     public PullPushLayout(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         mPresenter = new PullPushPresenter(this);
+
+        mTouchManager = new TouchManager();
+
+        setVerticalFadingEdgeEnabled(false);
+
+        mScrollChecker = new ScrollChecker();
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        // 回收 ScrollerChecker
     }
 
     @Override
@@ -61,6 +91,7 @@ public class PullPushLayout extends ViewGroup implements PullPushConstants.View 
 
         if (mContentView != null) {
             mContentView.bringToFront();
+            mContentView.setVerticalFadingEdgeEnabled(false);
         }
 
         if (mFooterView != null) super.onFinishInflate();
@@ -81,53 +112,25 @@ public class PullPushLayout extends ViewGroup implements PullPushConstants.View 
         final int action = ev.getAction();
         switch (action) {
             case MotionEvent.ACTION_DOWN:
-                mDownY = ev.getY();
-                mCurrentMoveY = mDownY;
-                mOffsetTotal = 0;
-                break;
+                mTouchManager.down(ev);
+                mScrollChecker.abortIfWorking();
+                super.dispatchTouchEvent(ev);
+                return true;
             case MotionEvent.ACTION_MOVE:
-                mLastMoveY = mCurrentMoveY;
-                mCurrentMoveY = ev.getY();
-                float offset = mCurrentMoveY - mLastMoveY;
-                boolean moveDown = offset < 0;
-                if (moveDown && !mContentView.canScrollVertically(1)) {
-                    mContentView.offsetTopAndBottom((int) offset);
-                    mHeaderView.offsetTopAndBottom((int) offset);
-                    mFooterView.offsetTopAndBottom((int) offset);
-
-                    mOffsetTotal += offset;
-                    return true;
-                } else if (!moveDown && !mContentView.canScrollVertically(-1)) {
-                    mContentView.offsetTopAndBottom((int) offset);
-                    mHeaderView.offsetTopAndBottom((int) offset);
-                    mFooterView.offsetTopAndBottom((int) offset);
-
-                    mOffsetTotal += offset;
+                if (mTouchManager.move(ev, mContentView.canScrollVertically(1),
+                                       mContentView.canScrollVertically(-1))) {
+                    int offset = mTouchManager.mCurrentOffset;
+                    updatePosition(offset);
                     return true;
                 }
-
-                if (mOffsetTotal * offset < 0) {
-                    float diff = mOffsetTotal + offset;
-                    if (diff * offset > 0) {
-                        offset = -mOffsetTotal;
-                    }
-                    mOffsetTotal += offset;
-                    mContentView.offsetTopAndBottom((int) offset);
-                    mHeaderView.offsetTopAndBottom((int) offset);
-                    mFooterView.offsetTopAndBottom((int) offset);
-                    return true;
-                } else {
-                    mOffsetTotal = 0f;
-                }
-
-
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
-                mDownY = 0;
-                mCurrentMoveY = 0;
-                mLastMoveY = 0;
-                resetChild();
+                if (mTouchManager.up(ev)) {
+//                    layoutChild();
+                    mScrollChecker.tryToScrollTo(0,1000);
+                }
+
                 break;
         }
 
@@ -151,6 +154,8 @@ public class PullPushLayout extends ViewGroup implements PullPushConstants.View 
 
         if (mFooterView != null) {
             measureChildWithMargins(mFooterView, widthMeasureSpec, 0, heightMeasureSpec, 0);
+            MarginLayoutParams lp = (MarginLayoutParams) mFooterView.getLayoutParams();
+            mFooterHeight = mFooterView.getMeasuredHeight() + lp.topMargin + lp.bottomMargin;
         }
     }
 
@@ -240,6 +245,12 @@ public class PullPushLayout extends ViewGroup implements PullPushConstants.View 
         mContentView.offsetTopAndBottom((int) vertical);
     }
 
+    public void updatePosition(int offset) {
+        mContentView.offsetTopAndBottom(offset);
+        mHeaderView.offsetTopAndBottom(offset);
+        mFooterView.offsetTopAndBottom(offset);
+    }
+
     @Override
     public boolean canVerticalScroll(int direction) {
         if (mContentView == null) {
@@ -276,6 +287,253 @@ public class PullPushLayout extends ViewGroup implements PullPushConstants.View 
 
         public LayoutParams(ViewGroup.LayoutParams source) {
             super(source);
+        }
+    }
+
+    private class TouchManager implements TouchHandler {
+        @PullState
+        private int mPullState = STATE_INIT;
+
+        private int mDownY;
+
+        private int mLastMoveY;
+
+        private int mCurrentMoveY;
+
+        private int mSumOffset;
+
+        private float mOffsetPercent = 0f;
+
+        private float mCurrentOffsetPercent;
+
+        private int mCurrentOffset;
+
+        // 最大的系数
+        private float mMaxCoefficient = 1f;
+
+        public TouchManager() {
+        }
+
+        @Override
+        public boolean down(MotionEvent ev) {
+            mDownY = (int) ev.getY();
+            mCurrentMoveY = mDownY;
+            return false;
+        }
+
+        @Override
+        public boolean move(MotionEvent ev, boolean canScrollDown, boolean canScrollUp) {
+            mLastMoveY = mCurrentMoveY;
+            mCurrentMoveY = (int) ev.getY();
+
+            int offset = mCurrentMoveY - mLastMoveY;
+
+            // offset > 0 下拉状态
+            // offset < 0 上滑状态
+            // 通过能否上下滚动来确定状态
+
+            if (offset > 0 && mSumOffset >= 0 && canScrollUp) {
+                mPullState = STATE_INIT;
+                return false;
+            }
+
+            if (offset < 0 && mSumOffset <= 0 && canScrollDown) {
+                mPullState = STATE_INIT;
+                return false;
+            }
+
+            if (mSumOffset > 0) {
+                mPullState = STATE_PULL_DOWN;
+            } else if (mSumOffset < 0) {
+                mPullState = STATE_PULL_UP;
+            } else {
+                mPullState = STATE_INIT;
+            }
+
+            int lastSumOffset = mSumOffset;
+            setOffset(offset);
+
+            offset = mSumOffset - lastSumOffset;
+
+            mCurrentOffset = offset;
+
+            float lastOffsetPercent = mOffsetPercent;
+
+            if (mCurrentOffset > 0) {
+                mOffsetPercent = mSumOffset / (mHeaderHeight * mMaxCoefficient);
+            } else {
+                mOffsetPercent = mSumOffset / (mFooterHeight * mMaxCoefficient);
+            }
+
+            mCurrentOffsetPercent = mOffsetPercent - lastOffsetPercent;
+            return true;
+        }
+
+        @Override
+        public boolean up(MotionEvent ev) {
+            if (mSumOffset == 0) {
+                return false;
+            }
+            // 当header 或 footer 完全显示的情况下 触发刷新
+            if (mSumOffset > 0 && mSumOffset >= mHeaderHeight) {
+                mPullState = STATE_PREPARE_DOWN;
+            } else if (mSumOffset < 0 && Math.abs(mSumOffset) >= mFooterHeight) {
+                mPullState = STATE_PREPARE_UP;
+            } else {
+                mPullState = mSumOffset > 0 ? STATE_COMPLETE_DOWN : STATE_COMPLETE_UP;
+            }
+
+            // 实际判断是否能刷新
+
+            if (canPerformLoading()) {
+                if (mPullState == STATE_PREPARE_DOWN) {
+                    mPullState = STATE_LOADING_DOWN;
+                }
+
+                if (mPullState == STATE_PREPARE_UP) {
+                    mPullState = STATE_LOADING_UP;
+                }
+            } else {
+
+                if (mPullState == STATE_PREPARE_DOWN) {
+                    mPullState = STATE_COMPLETE_DOWN;
+                }
+
+                if (mPullState == STATE_PREPARE_UP) {
+                    mPullState = STATE_COMPLETE_UP;
+                }
+
+
+            }
+
+            if (mCurrentOffset > 0) {
+                mOffsetPercent = mSumOffset / mHeaderHeight * mMaxCoefficient;
+            } else {
+                mOffsetPercent = mSumOffset / mFooterHeight * mMaxCoefficient;
+            }
+            return true;
+        }
+
+        private boolean canPerformLoading() {
+            switch (mPullState) {
+                case STATE_PREPARE_DOWN:
+                    // TODO: 16-7-4
+                    break;
+                case STATE_PREPARE_UP:
+                    break;
+            }
+
+            return false;
+        }
+
+        public boolean isAlreadyHere(int to) {
+            return mSumOffset == to;
+        }
+
+        public void setOffset(int offset){
+
+            if (mSumOffset > 0) {
+                mSumOffset = Math.max(0, mSumOffset + offset);
+            } else if (mSumOffset < 0) {
+                mSumOffset = Math.min(0, mSumOffset + offset);
+            } else {
+                mSumOffset += offset;
+            }
+
+            // 限制头和脚被拉的距离
+            if (mSumOffset > 0) {
+                if (mSumOffset > mHeaderHeight * mMaxCoefficient) {
+                    mSumOffset = (int) (mHeaderHeight * mMaxCoefficient);
+                }
+            } else {
+                if (Math.abs(mSumOffset) > mFooterHeight * mMaxCoefficient) {
+                    mSumOffset = (int) (-mHeaderHeight * mMaxCoefficient);
+                }
+            }
+
+        }
+    }
+
+    class ScrollChecker implements Runnable {
+
+        private Scroller mScroller;
+
+        private int mStart;
+        private int mTo;
+
+        private int mLastY;
+
+        private long mDuration;
+
+        private boolean isRunning;
+
+        public ScrollChecker() {
+            mScroller = new Scroller(getContext());
+        }
+
+        @Override
+        public void run() {
+            boolean finish = !mScroller.computeScrollOffset() || mScroller.isFinished();
+            int currentY = mScroller.getCurrY();
+            int deltaY = currentY - mLastY;
+            if (deltaY != 0) {
+                Log.d(TAG,"currentY:"+currentY + "  deltaY:"+deltaY);
+            }
+
+            if (!finish) {
+                mLastY = currentY;
+                updatePosition(deltaY);
+                mTouchManager.setOffset(deltaY);
+                post(this);
+            } else {
+                finish();
+            }
+        }
+
+        private void finish() {
+            reset();
+        }
+
+        private void reset() {
+            isRunning = false;
+            mLastY = 0;
+            removeCallbacks(this);
+        }
+
+        public void abortIfWorking() {
+            if (isRunning) {
+                if (!mScroller.isFinished()) {
+                    mScroller.forceFinished(true);
+                }
+                reset();
+            }
+        }
+
+        public void tryToScrollTo(int to, long duration) {
+            if (mTouchManager.isAlreadyHere(to)) {
+                return;
+            }
+
+            mDuration = duration;
+
+            mStart = mTouchManager.mSumOffset;
+            mTo = to;
+
+            int distance = mTo - mStart;
+            removeCallbacks(this);
+
+
+            if (!mScroller.isFinished()) {
+                mScroller.forceFinished(true);
+            }
+
+            mLastY = 0;
+
+            mScroller.startScroll(0, 0, 0, distance, (int) mDuration);
+
+            post(this);
+
+            isRunning = true;
         }
     }
 }
