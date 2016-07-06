@@ -32,7 +32,7 @@ public class PtrFrameLayout extends ViewGroup {
     public final static byte PTR_STATUS_COMPLETE_FOOTER = 7;
 
     private static final boolean DEBUG_LAYOUT = true;
-    public static boolean DEBUG = true;
+    public static boolean DEBUG = false;
     private static int ID = 1;
     protected final String LOG_TAG = "ptr-frame-" + ++ID;
     // auto refresh status

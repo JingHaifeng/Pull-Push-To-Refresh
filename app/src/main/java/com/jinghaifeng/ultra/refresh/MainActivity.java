@@ -40,6 +40,7 @@ public class MainActivity extends AppCompatActivity {
         mPtrFrameLayout.setFooterView(footer);
         mPtrFrameLayout.addPtrUIHeaderHandler(header);
         mPtrFrameLayout.addPtrUIFooterHandler(footer);
+        mPtrFrameLayout.setLoadingMinTime(0);
         mPtrFrameLayout.setPtrHandler(new PtrDefaultHandler() {
             @Override
             public void onRefreshBegin(PtrFrameLayout frame) {
