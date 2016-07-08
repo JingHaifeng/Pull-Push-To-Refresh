@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -16,6 +17,7 @@ import in.srain.cube.views.ptr.PtrDefHandler;
 import in.srain.cube.views.ptr.PtrFrameLayout;
 import in.srain.cube.views.ptr.footer.PtrClassicDefaultFooter;
 import in.srain.cube.views.ptr.header.PtrClassicDefaultHeader;
+import in.srain.cube.views.ptr.util.PtrCLog;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -50,6 +52,33 @@ public class MainActivity extends AppCompatActivity {
                         mPtrFrameLayout.refreshComplete();
                     }
                 },1500L);
+            }
+        });
+        mRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
+                super.onScrollStateChanged(recyclerView, newState);
+                PtrCLog.d("scroll",
+                          "state:" + newState + " canUp:" + recyclerView.canScrollVertically(-1) +
+                          "  canDown:" + recyclerView.canScrollVertically(1));
+            }
+
+            @Override
+            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                PtrCLog.d("scroll", "dx:" + dx + "\tdy:" + dy + " canUp:" +
+                                    recyclerView.canScrollVertically(-1) + "  canDown:" +
+                                    recyclerView.canScrollVertically(1));
+            }
+        });
+
+        mRecyclerView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                PtrCLog.d("scroll", "getAction:" + event.getAction()+
+                                    v.canScrollVertically(-1) + "  canDown:" +
+                                    v.canScrollVertically(1));
+                return false;
             }
         });
     }

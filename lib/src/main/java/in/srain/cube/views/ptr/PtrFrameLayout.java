@@ -361,10 +361,19 @@ public class PtrFrameLayout extends ViewGroup {
                 boolean moveUp = mPtrIndicator.isMoveUp();
                 // disable move when header not reach top
                 if (moveDown && mPtrHandler != null && mPtrHandler.checkCanPullDown(this, mContent)) {
+                    if (mHasSendCancelEvent) {
+                        mHasSendCancelEvent = false;
+                        return senDownEventSuper();
+                    }
                     return dispatchTouchEventSupper(e);
                 }
 
                 if (moveUp && mPtrHandler != null && mPtrHandler.checkCanPullUp(this,mContent)) {
+
+                    if (mHasSendCancelEvent) {
+                        mHasSendCancelEvent = false;
+                        return senDownEventSuper();
+                    }
                     return dispatchTouchEventSupper(e);
                 }
 
@@ -1039,6 +1048,15 @@ public class PtrFrameLayout extends ViewGroup {
         final MotionEvent last = mLastMoveEvent;
         MotionEvent e = MotionEvent.obtain(last.getDownTime(), last.getEventTime(), MotionEvent.ACTION_DOWN, last.getX(), last.getY(), last.getMetaState());
         dispatchTouchEventSupper(e);
+    }
+
+    private boolean senDownEventSuper(){
+        if (DEBUG) {
+            PtrCLog.d(LOG_TAG, "send down event");
+        }
+        final MotionEvent last = mLastMoveEvent;
+        MotionEvent e = MotionEvent.obtain(last.getDownTime(), last.getEventTime(), MotionEvent.ACTION_DOWN, last.getX(), last.getY(), last.getMetaState());
+        return dispatchTouchEventSupper(e);
     }
 
     public static class LayoutParams extends MarginLayoutParams {

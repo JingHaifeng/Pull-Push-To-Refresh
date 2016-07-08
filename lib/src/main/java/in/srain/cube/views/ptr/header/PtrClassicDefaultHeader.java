@@ -243,7 +243,7 @@ public class PtrClassicDefaultHeader extends FrameLayout implements PtrUIHandler
         final int mOffsetToRefresh = Math.abs(frame.getOffsetToRefresh());
         final int currentPos =  Math.abs(ptrIndicator.getCurrentPosY());
         final int lastPos =  Math.abs(ptrIndicator.getLastPosY());
-        PtrCLog.d("header","mOffsetToRefresh:"+mOffsetToRefresh+"\n:"+currentPos+"\nlastPos:"+lastPos);
+        PtrCLog.d("header","mOffsetToRefresh:"+mOffsetToRefresh+"\ncurrentPos:"+currentPos+"\nlastPos:"+lastPos);
         if (currentPos < mOffsetToRefresh && lastPos >= mOffsetToRefresh) {
             if (isUnderTouch && (status == PtrFrameLayout.PTR_STATUS_PREPARE_HEADER)) {
                 crossRotateLineFromBottomUnderTouch(frame);

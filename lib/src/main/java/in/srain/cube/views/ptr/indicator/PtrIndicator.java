@@ -50,7 +50,17 @@ public class PtrIndicator {
     }
 
     protected void processOnMove(int currentX, int currentY, int offsetX, int offsetY) {
-        setOffset(offsetX, (int) (offsetY / mResistance));
+        setOffset(offsetX, getApproximate(offsetY / mResistance));
+    }
+
+    private int getApproximate(float value) {
+        if (value > 0 && value < 1f) {
+            return 1;
+        } else if (value < 0 && value > -1f) {
+            return -1;
+        } else {
+            return (int) value;
+        }
     }
 
     public void setRatioOfHeaderHeightToRefresh(float ratio) {
