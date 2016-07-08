@@ -1,15 +1,15 @@
 package in.srain.cube.views.ptr.indicator;
 
-import android.graphics.PointF;
+import android.graphics.Point;
 
 public class PtrIndicator {
 
     public final static int POS_START = 0;
     protected int mHeaderOffsetToRefresh = 0;
     protected int mFooterOffsetToRefresh = 0;
-    private PointF mPtLastMove = new PointF();
-    private float mOffsetX;
-    private float mOffsetY;
+    private Point mPtLastMove = new Point();
+    private int mOffsetX;
+    private int mOffsetY;
     private int mCurrentPos = 0;
     private int mLastPos = 0;
     private int mHeaderHeight;
@@ -19,7 +19,7 @@ public class PtrIndicator {
     private float mRatioOfHeaderHeightToRefresh = 1f;
     private float mRatioOfFooterHeightToRefresh = 1f;
     private float mMaxRatioToPull = 1f;
-    private float mResistance = 1.7f;
+    private float mResistance = 1f;
     private boolean mIsUnderTouch = false;
     private int mOffsetToKeepHeaderWhileLoading = -1;
     // record the refresh complete position
@@ -49,8 +49,8 @@ public class PtrIndicator {
         return mCurrentPos != mRefreshCompleteY;
     }
 
-    protected void processOnMove(float currentX, float currentY, float offsetX, float offsetY) {
-        setOffset(offsetX, offsetY / mResistance);
+    protected void processOnMove(int currentX, int currentY, int offsetX, int offsetY) {
+        setOffset(offsetX, (int) (offsetY / mResistance));
     }
 
     public void setRatioOfHeaderHeightToRefresh(float ratio) {
@@ -89,20 +89,43 @@ public class PtrIndicator {
         mFooterOffsetToRefresh = offset;
     }
 
-    public void onPressDown(float x, float y) {
+    public void onPressDown(int x, int y) {
         mIsUnderTouch = true;
         mPressedPos = mCurrentPos;
         mPtLastMove.set(x, y);
     }
 
-    public final void onMove(float x, float y) {
-        float offsetX = x - mPtLastMove.x;
-        float offsetY = (y - mPtLastMove.y);
+    public final void onMove(int x, int y) {
+        int offsetX = x - mPtLastMove.x;
+        int offsetY = (y - mPtLastMove.y);
+
+        if (offsetY > 0) {
+            // 向下
+            if (mCurrentPos > 0) {
+                // 正在下拉状态
+            } else if (mCurrentPos < 0) {
+                // 正在上拉状态
+                // 移到 0 时 截断
+                if (mCurrentPos + offsetY > 0) {
+                    offsetY = -mCurrentPos;
+                    y = mPtLastMove.y + offsetY;
+                }
+            }
+        } else if (offsetY < 0) {
+            // 向上
+            if (mCurrentPos > 0) {
+                if (mCurrentPos + offsetY < 0) {
+                    offsetY = -mCurrentPos;
+                    y = mPtLastMove.y + offsetY;
+                }
+            }
+        }
+
         processOnMove(x, y, offsetX, offsetY);
         mPtLastMove.set(x, y);
     }
 
-    protected void setOffset(float x, float y) {
+    protected void setOffset(int x, int y) {
         mOffsetX = x;
         mOffsetY = y;
     }
@@ -128,9 +151,9 @@ public class PtrIndicator {
      */
     public final void setCurrentPos(int current) {
         mLastPos = mCurrentPos;
-//        if (Math.abs(current) >= Math.abs(getMaxPullHeight())) {
-//            current = getMaxPullHeight();
-//        }
+        //        if (Math.abs(current) >= Math.abs(getMaxPullHeight())) {
+        //            current = getMaxPullHeight();
+        //        }
         mCurrentPos = current;
         onUpdatePos(current, mLastPos);
     }
@@ -176,7 +199,7 @@ public class PtrIndicator {
         return mLastPos == POS_START && hasLeftStartPosition();
     }
 
-    public boolean hasJustPullDown(){
+    public boolean hasJustPullDown() {
         return hasJustLeftStartPosition() && mCurrentPos > 0;
     }
 
@@ -194,7 +217,7 @@ public class PtrIndicator {
                 return false;
             }
             return mCurrentPos >= getHeaderOffsetToRefresh();
-        } else if (mCurrentPos < 0){
+        } else if (mCurrentPos < 0) {
             if (mFooterHeight == 0 || mFooterOffsetToRefresh == 0) {
                 return false;
             }
@@ -214,9 +237,11 @@ public class PtrIndicator {
 
     public boolean crossRefreshLine() {
         if (mCurrentPos > 0) {
-            return mLastPos < getHeaderOffsetToRefresh() && mCurrentPos >= getHeaderOffsetToRefresh();
-        } else if (mCurrentPos < 0){
-            return Math.abs(mLastPos) < getFooterOffsetToRefresh() && Math.abs(mCurrentPos) >= getFooterOffsetToRefresh();
+            return mLastPos < getHeaderOffsetToRefresh() &&
+                   mCurrentPos >= getHeaderOffsetToRefresh();
+        } else if (mCurrentPos < 0) {
+            return Math.abs(mLastPos) < getFooterOffsetToRefresh() && Math.abs(mCurrentPos) >=
+                                                                      getFooterOffsetToRefresh();
         } else {
             return false;
         }
@@ -225,8 +250,9 @@ public class PtrIndicator {
     public boolean hasJustReachedHeight() {
         if (mCurrentPos > 0) {
             return mLastPos < getHeaderOffsetToRefresh() && mCurrentPos >= mHeaderHeight;
-        } else if (mCurrentPos < 0){
-            return Math.abs(mLastPos) < getFooterOffsetToRefresh() && Math.abs(mCurrentPos) >= mFooterHeight;
+        } else if (mCurrentPos < 0) {
+            return Math.abs(mLastPos) < getFooterOffsetToRefresh() && Math.abs(mCurrentPos) >=
+                                                                      mFooterHeight;
         } else {
             return false;
         }
@@ -241,9 +267,7 @@ public class PtrIndicator {
     }
 
     public int getOffsetToKeepHeaderWhileLoading() {
-        return mOffsetToKeepHeaderWhileLoading >= 0 ? mOffsetToKeepHeaderWhileLoading :
-                mCurrentPos > 0 ?
-                mHeaderHeight : -mFooterHeight;
+        return mCurrentPos > 0 ? mHeaderHeight : -mFooterHeight;
     }
 
     public boolean isAlreadyHere(int to) {
@@ -285,7 +309,7 @@ public class PtrIndicator {
         mMaxRatioToPull = maxRatioToPull;
     }
 
-    public int getMaxPullHeight(){
+    public int getMaxPullHeight() {
         if (mCurrentPos > 0) {
             return (int) (mMaxRatioToPull * mHeaderHeight);
         } else {

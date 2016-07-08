@@ -13,7 +13,7 @@ public class PtrTensionIndicator extends PtrIndicator {
     private float mReleasePercent = -1;
 
     @Override
-    public void onPressDown(float x, float y) {
+    public void onPressDown(int x, int y) {
         super.onPressDown(x, y);
         mDownY = y;
         mDownPos = getCurrentPosY();
@@ -39,7 +39,7 @@ public class PtrTensionIndicator extends PtrIndicator {
     }
 
     @Override
-    protected void processOnMove(float currentX, float currentY, float offsetX, float offsetY) {
+    protected void processOnMove(int currentX, int currentY, int offsetX, int offsetY) {
 
         if (currentY < mDownY) {
             super.processOnMove(currentX, currentY, offsetX, offsetY);

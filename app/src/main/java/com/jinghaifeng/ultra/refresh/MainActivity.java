@@ -12,7 +12,7 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.List;
 
-import in.srain.cube.views.ptr.PtrDefaultHandler;
+import in.srain.cube.views.ptr.PtrDefHandler;
 import in.srain.cube.views.ptr.PtrFrameLayout;
 import in.srain.cube.views.ptr.footer.PtrClassicDefaultFooter;
 import in.srain.cube.views.ptr.header.PtrClassicDefaultHeader;
@@ -41,7 +41,7 @@ public class MainActivity extends AppCompatActivity {
         mPtrFrameLayout.addPtrUIHeaderHandler(header);
         mPtrFrameLayout.addPtrUIFooterHandler(footer);
         mPtrFrameLayout.setLoadingMinTime(0);
-        mPtrFrameLayout.setPtrHandler(new PtrDefaultHandler() {
+        mPtrFrameLayout.setPtrHandler(new PtrDefHandler() {
             @Override
             public void onRefreshBegin(PtrFrameLayout frame) {
                 mPtrFrameLayout.postDelayed(new Runnable() {

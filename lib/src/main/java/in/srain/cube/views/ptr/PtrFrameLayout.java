@@ -32,7 +32,7 @@ public class PtrFrameLayout extends ViewGroup {
     public final static byte PTR_STATUS_COMPLETE_FOOTER = 7;
 
     private static final boolean DEBUG_LAYOUT = true;
-    public static boolean DEBUG = false;
+    public static boolean DEBUG = BuildConfig.DEBUG;
     private static int ID = 1;
     protected final String LOG_TAG = "ptr-frame-" + ++ID;
     // auto refresh status
@@ -330,7 +330,7 @@ public class PtrFrameLayout extends ViewGroup {
 
             case MotionEvent.ACTION_DOWN:
                 mHasSendCancelEvent = false;
-                mPtrIndicator.onPressDown(e.getX(), e.getY());
+                mPtrIndicator.onPressDown(((int) e.getX()), ((int) e.getY()));
 
                 mScrollChecker.abortIfWorking();
 
@@ -343,7 +343,7 @@ public class PtrFrameLayout extends ViewGroup {
 
             case MotionEvent.ACTION_MOVE:
                 mLastMoveEvent = e;
-                mPtrIndicator.onMove(e.getX(), e.getY());
+                mPtrIndicator.onMove(((int) e.getX()), ((int) e.getY()));
                 float offsetX = mPtrIndicator.getOffsetX();
                 float offsetY = mPtrIndicator.getOffsetY();
 
@@ -360,14 +360,11 @@ public class PtrFrameLayout extends ViewGroup {
                 boolean moveDown = mPtrIndicator.isMoveDown();
                 boolean moveUp = mPtrIndicator.isMoveUp();
                 // disable move when header not reach top
-                if (moveDown && mPtrHandler != null && !mPtrHandler.checkCanDoRefresh(this, mContent, mHeaderView)
-                    && !mPtrIndicator.hasLeftStartPosition()) {
+                if (moveDown && mPtrHandler != null && mPtrHandler.checkCanPullDown(this, mContent)) {
                     return dispatchTouchEventSupper(e);
                 }
 
-                if (moveUp && mPtrHandler != null
-                    && (!mPtrHandler.checkCanDoRefresh(this,mContent,mFooterView)
-                        && !mPtrIndicator.hasLeftStartPosition())) {
+                if (moveUp && mPtrHandler != null && mPtrHandler.checkCanPullUp(this,mContent)) {
                     return dispatchTouchEventSupper(e);
                 }
 
@@ -443,9 +440,9 @@ public class PtrFrameLayout extends ViewGroup {
             tryToNotifyReset();
 
             // recover event to children
-            if (isUnderTouch) {
-                sendDownEvent();
-            }
+//            if (isUnderTouch) {
+//                sendDownEvent();
+//            }
         }
 
         // Pull down to Refresh
